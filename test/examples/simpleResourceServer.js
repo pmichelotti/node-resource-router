@@ -2,6 +2,7 @@
 var httpConstants = require( '../../main/http/Constants' );
 var serverFactory = require( '../../main/server/Server' );
 var routerFactory = require( '../../main/router/Router' );
+var fileRouterFactory = require( '../../main/router/FileRouter' );
 var responseFactory = require( '../../main/http/Response' );
 var resourceHandlerMapFactory = require( '../../main/router/ResourceHandlerMap' );
 var resourceFactory = require( '../../main/resource/Resource' );
@@ -41,9 +42,11 @@ var dummyResourceRequestor = function( resourceUri, callback ) {
 
 var router = routerFactory.make( resourceHandlerMap, handlerDefinitions );
 
+var fileRouter = fileRouterFactory.make( [ '/Users/paulmichelotti/Projects/ResourceRouter/dev/node-resource-router/test/examples/static' ] );
+
 var server = serverFactory.make( {
     resourceRequestor : dummyResourceRequestor, 
-    resourceRouter : router
+    routerChain : [ fileRouter, router ]
 } );
 
 server.start();

@@ -2,6 +2,7 @@ var http = require( 'http' );
 var httpConstants = require( '../http/Constants' );
 var url = require( 'url' );
 var requestFactory = require( '../http/Request' );
+var responseFactory = require( '../http/Response' );
 var querystring = require( 'querystring' );
 
 /**
@@ -234,6 +235,42 @@ var retrievePayload = function( request, response, callback ) {
     }
 };
 
+var routeRequestThroughRouterChain = function( requestRepresentation, routerChain, callback ) {
+
+    if ( routerChain.length ) {
+	routeRequestThroughCurrentRouterInChain( requestRepresentation, routerChain[ 0 ], routerChain.slice( 1 ), callback );
+    }
+    else {
+	callback( null );
+    }
+
+};
+
+var routeRequestThroughCurrentRouterInChain = function( requestRepresentation, curRouter, remainingRouters, callback ) {
+
+    if ( curRouter ) {
+	curRouter.handleRequest( requestRepresentation, function( response ) {
+
+	    if ( response ) {
+		callback( response );
+	    }
+	    else {
+		if ( remainingRouters && remainingRouters.length ) {
+		    routeRequestThroughCurrentRouterInChain( requestRepresentation, remainingRouters[ 0 ], remainingRouters.slice( 1 ), callback );
+		}
+		else {
+		    callback( null );
+		}
+	    }
+
+	} );
+    }
+    else {
+	callback( null );
+    }
+
+};
+
 /**
  * Prototype of a Server instance
  */
@@ -257,11 +294,17 @@ var ServerPrototype = {
 	var requestRepresentationFactory = this.requestRepresentationFactory;
 	var requestToResourceUriTransformer = this.requestToResourceUriTransformer;
 
-	var resourceRouter = this.resourceRouter;
+	var routerChain = this.routerChain;
 
 	var handleRequestCallback = function( responseObject ) {
 
 	    console.log( 'Handler completed processing, writing response object to client response' );
+
+	    //if the responseObject is null - then write a 404
+	    if ( !responseObject ) {
+		responseObject = responseFactory.make( httpConstants.NOT_FOUND, httpConstants.TEXT_PLAIN );
+	    }
+
 	    //if no status code was set or if the status code is not a known status code, a 500 is returned
 	    if ( !responseObject.statusCode ) {
 
@@ -287,7 +330,7 @@ var ServerPrototype = {
 	var constructRequestRepresentationCallback = function( requestRepresentation ) {
 
 	    console.log( 'Providing request representation for resource of type ' + requestRepresentation.resource.type + ' to the Handler' );
-	    resourceRouter.handleRequest( requestRepresentation, handleRequestCallback );
+	    routeRequestThroughRouterChain( requestRepresentation, routerChain, handleRequestCallback );
 
 	};
 
@@ -349,7 +392,9 @@ var ServerPrototype = {
  *          <li>port : <em>Optional</em> The port Number which the server will listen on.  Defaults to 8888.</li>
  *          <li>resourceRequestor : <em>Required</em> A function which will take a URI, create a Resource representation, and provide the 
  *                                  representation to a callback function.</li>
- *          <li>resourceRouter : <em>Required</em> A Router implementation responsible for mapping Resource Representations to Handlers</li>
+ *          <li>routerChain : <em>Required</em> A List of Router implementations. Requests will go through each router in the list until one 
+ *                            is able to handle the request.  A handled request is signified by the router passing a non-null response to the 
+ *                            request handler's callback.  A Router implementation is an object which has at least a handleRequest function</li>
  *          <li>requestRepresentationFactory : <em>Optional</em> A factory which builds Request Representation objects based on HTTP requests 
  *                                             and resource representations. Such a factory is expected to take the following parameters : 
  *                                             request (the raw HTTP request), payload, resource (the Resource Representation built via the
@@ -374,10 +419,10 @@ var serverFactory = function( config ) {
 	    value : config.resourceRequestor, 
 	    writable : false
         }, 
-	resourceRouter : {
-	    value : config.resourceRouter, 
+	routerChain : {
+	    value : config.routerChain || [], 
 	    writable : false
-        },
+	},
 	requestRepresentationFactory : {
 	    value : config.requestRepresentationFactory || defaultRequestRepresentationFactory, 
 	    writable : false

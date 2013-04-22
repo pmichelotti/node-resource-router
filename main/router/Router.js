@@ -33,10 +33,14 @@ var RouterPrototype = {
 	    if ( typeof handler === 'function' ) {
 
 		handler( request, callback );
+		return;
 
 	    }
 	}
 
+	//if we get here then either a handler was not found or it was ill-defined.  Either way we pass null to the callback to let it know 
+        //that this router could not do anything with the request
+	callback( null );
 	//if we reach this point it means that either a handler was not found or it was ill-defined.  Either way we return a 404
 	callback( Response.make( HTTP.NOT_FOUND, HTTP.TEXT_PLAIN ) );
 
