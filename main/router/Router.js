@@ -16,7 +16,7 @@ var RouterPrototype = {
      * Handles the request by looking up an appropriate handler for the provided Request object and calling said handler, passing 
      * it the callback provided.
      *
-     * @param request A Request object representing the request to be handled
+     * @param request A Request Representation object representing the request to be handled
      * @param callback A function to call upon handling of the request.  This function will be given a single Response object
      *        parameter when called either by the router (in the case of an immediate 404) or by one of the handlers
      */

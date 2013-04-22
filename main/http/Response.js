@@ -1,5 +1,12 @@
 /**
- * Response is an object representation of an HTTP response suitable for later propagation to the requesting client
+ * Response is an object representation of an HTTP response suitable for later propagation to the requesting client.
+ * Three properties are contained in a response
+ * 
+ * <ul>
+ *   <li>statusCode : The HTTP status code.  If this is missing it must be assumed that the request has failed due to internal error</li>
+ *   <li>contentType : Content type of the response payload</li>
+ *   <li>payload : String version of the payload of the response</li>
+ * </ul>
  */
 
 var ResponsePrototype = {
