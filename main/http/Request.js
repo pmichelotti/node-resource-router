@@ -8,6 +8,43 @@ var RequestRepresentationPrototype = {
 };
 
 /**
+ * Pull the extension from the request url.  The extension is defined to be the portion of the path following the last '.' character in the path which 
+ * is not followed by a '/' character
+ *
+ * @param request The HTTP request
+ * 
+ * @return The extension of the request or null if one is not provided
+ */
+var getExtensionFromRequest = function( request ) {
+
+    var periodPosition = request.url.lastIndexOf( '.' );
+
+    if ( request.url.indexOf( '/', periodPosition ) === -1 ) {
+	return request.url.substr( periodPosition + 1 );
+    }
+
+    return null;
+};
+
+//TODO: Implement
+var getContentTypeFromRequest = function( request ) {
+    return null;
+};
+
+/**
+ * Extracts the HTTP Method from the request and returns it as a string
+ *
+ * @param request the HTTP request
+ *
+ * @return The request method
+ */
+var getMethodFromRequest = function( request ) {
+
+    return request.method; 
+
+};
+
+/**
  * Creates a Request Representation object based on the provided HTTP
  * request.  
  * 

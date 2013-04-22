@@ -16,9 +16,9 @@ var ResourceHandlerMapPrototype = {
      */
     getHandlerForRequest : function( request ) {
 
-	var uriMapping = this.map[ request.uri ];
+	var uriMapping = this.map[ request.resource.uri ] || this.map[ request.resource.type ];
 
-	if uriMapping {
+	if ( uriMapping ) {
 	    
 	    var methodMapping = uriMapping[ request.method ] || uriMapping[ '*' ];
 
@@ -82,7 +82,7 @@ var resourceHandlerMapFactory = function( mapContents ) {
 	    value : internalMapping, 
 	    writable : false
 	}
-    };
+    } );
 
 };
 

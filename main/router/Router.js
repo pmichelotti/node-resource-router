@@ -1,5 +1,5 @@
-var Response = require( 'http/Response' );
-var HTTP = require( 'http/Constants' );
+var Response = require( '../http/Response' );
+var HTTP = require( '../http/Constants' );
 
 /**
  * The Router handles the routing of requests to handlers which ultimately respond to the request. 
@@ -22,14 +22,17 @@ var RouterPrototype = {
      */
     handleRequest : function( request, callback ) {
 
+	console.log( 'Starting request handling' );
+
 	var handlerUri = this.resourceHandlerMap.getHandlerForRequest( request );
+	console.log( 'Handler URI determined to be ' + handlerUri );
 
 	if ( handlerUri ) {
 	    var handler = this.handlers[ handlerUri ];
 
-	    if ( handler && handler.handle ) {
+	    if ( typeof handler === 'function' ) {
 
-		handler.handle( request, callback );
+		handler( request, callback );
 
 	    }
 	}
@@ -60,7 +63,7 @@ var routerFactory = function( resourceHandlerMap, handlerDefinitions ) {
 	    value : handlerDefinitions, 
 	    writable : false
 	}
-    };
+    } );
 
 };
 

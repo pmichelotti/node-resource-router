@@ -1,7 +1,7 @@
 var http = require( 'http' );
-var httpConstants = require( 'http/Constants' );
+var httpConstants = require( '../http/Constants' );
 var url = require( 'url' );
-var requestFactory = require( 'request/Request' );
+var requestFactory = require( '../http/Request' );
 var querystring = require( 'querystring' );
 
 /**
@@ -23,7 +23,10 @@ var defaultPort = 8888;
  */ 
 var defaultServerStarter = function( requestHandler, port ) {
 
-    return http.createServer( requesthandler ).listen( port );
+    console.log( 'Starting server using default HTTP module' );
+    var createdServer = http.createServer( requestHandler ).listen( port );
+    console.log( 'Server started at Port ' + port );
+    return createdServer;
 
 };
 
@@ -35,17 +38,31 @@ var defaultServerStarter = function( requestHandler, port ) {
  * 
  * @return The resource URI
  */
-var defaultRequestUriToResourceUriTransformer = function( uriString ) {
+var defaultRequestToResourceUriTransformer = function( request ) {
 
-    var requestUrl = url.parse( uriString );
+    var requestUrl = url.parse( request.url );
     
     var resourcePath = removeExtensionFromRequestPath( requestUrl.pathname );
+    console.log( 'Resource Path : ' + resourcePath );
+    
+    var requestProtocol = requestUrl.protocol || request.protocol || 'http:';
+    var requestHost = requestUrl.host || request.headers[ 'host' ];
+    
+    var requestPort = requestUrl.port;
 
-   if ( requestUrl.port ) {
-       return requestUrl.protocol + '//' + requestUrl.host + ':' + requestUrl.port + resourcePath;
-   }
+    //TODO: This is a mess and should be cleaned
+    if ( requestHost && requestHost.indexOf( ':' ) !== -1 ) {
+	if ( !requestPort ) {
+	    requestPort = requestHost.split( ':' )[ 1 ];
+        }
+	requestHost = requestHost.split( ':' )[ 0 ];
+    }
 
-   return requestUrl.protocol + '//' + requestUrl.host + resourcePath;
+    if ( requestPort ) {
+        return requestProtocol + '//' + requestHost + ':' + requestPort + resourcePath;
+    }
+
+    return requestProtocol + '//' + requestHost + resourcePath;
 
 };
 
@@ -96,7 +113,7 @@ var removeExtensionFromRequestPath = function( path ) {
  *        pass that resource to the callback function.
  * @param requestRepresentationFactory A factory responsible for creating Request Representations following the API of
  *        a Request Representation Factory which is HTTP Request, Payload, Resource
- * @param requestUriToResourceUriTransformer A function which takes the URI string from an HTTP request and returns a String
+ * @param requestToResourceUriTransformer A function which takes an HTTP request and returns a String
  *        representation of the requested resource URI
  * @param callback A function which will take the constructed Request Representation
  */
@@ -105,10 +122,12 @@ var constructRequestRepresentation = function(
     payload, 
     resourceRequestor, 
     requestRepresentationFactory, 
-    requestUriToResourceUriTransformer, 
+    requestToResourceUriTransformer, 
     callback ) {
     
-    var resourceUri = requestUriToResourceUriTransformer( request.uri );
+    var resourceUri = requestToResourceUriTransformer( request );
+
+    console.log( 'Resource URI determined to be ' + resourceUri );
 
     resourceRequestor( resourceUri, function( resource ) {
 
@@ -126,9 +145,9 @@ var constructRequestRepresentation = function(
  * 
  * @return The parsed query string
  */
-var retrievePayloadFromQueryString( request ) {
+var retrievePayloadFromQueryString = function( request ) {
 
-    var requestUrl = url.parse( request );
+    var requestUrl = url.parse( request.url );
 
     if ( typeof requestUrl.query === 'String' ) {
 	return querystring.parse( requestUrl.query );
@@ -148,7 +167,7 @@ var retrievePayloadFromQueryString( request ) {
  * @param request the HTTP request to pull the request body from
  * @param callback The callback to which the payload will be passed
  */
-var retrievePayloadFromRequestBody( request, callback ) {
+var retrievePayloadFromRequestBody = function( request, callback ) {
 
     var requestBody = '';
 
@@ -191,17 +210,24 @@ var retrievePayloadFromRequestBody( request, callback ) {
  * @param response The HTTP response object produced by the server
  * @param callback A function which will take as input the payload object
  */
-var retrievePayload( request, response, callback ) {
+var retrievePayload = function( request, response, callback ) {
+
+    console.log( 'Finding payload retriever for ' + request.method );
+    
+    console.log( 'Constant GET Method : ' + httpConstants.GET_METHOD + ' :: ' + ( httpConstants.GET_METHOD === request.method ) );
 
     switch( request.method ) {
 
 	case httpConstants.GET_METHOD : 
+	    console.log( 'Retrieving payload for GET request' );
 	    callback( retrievePayloadFromQueryString( request ) );
 	    break;
         case httpConstants.POST_METHOD : 
+            console.log( 'Retrieving payload for POST request' );
             retrievePayloadFromRequestBody( request, callback );
             break;
-	case httpConstants.PUT_METHOD : 
+	case httpConstants.PUT_METHOD :
+            console.log( 'Retrieveing payload for PUT request' ); 
 	    retrievePayloadFromRequestBody( request, callback );
 	    break;
 
@@ -229,27 +255,28 @@ var ServerPrototype = {
 
 	var resourceRequestor = this.resourceRequestor;
 	var requestRepresentationFactory = this.requestRepresentationFactory;
-	var requestUriToResourceUriTransformer = this.requestUriToResourceUriTransformer;
+	var requestToResourceUriTransformer = this.requestToResourceUriTransformer;
 
 	var resourceRouter = this.resourceRouter;
 
 	var handleRequestCallback = function( responseObject ) {
 
+	    console.log( 'Handler completed processing, writing response object to client response' );
 	    //if no status code was set or if the status code is not a known status code, a 500 is returned
 	    if ( !responseObject.statusCode ) {
 
-		response.writeHead( httpConstants.INTERNAL_SERVER_ERROR, { httpConstants.CONTENT_TYPE : httpConstants.TEXT_PLAIN } );
+		response.writeHead( httpConstants.INTERNAL_SERVER_ERROR, { "Content-Type" : httpConstants.TEXT_PLAIN } );
 		response.end();
 		return;
 
 	    }
 
 	    
-	    response.writeHead( responseObject.statusCode, { httpConstants.CONTENT_TYPE : responseObject.contentType } );
+	    response.writeHead( responseObject.statusCode, { "Content-Type" : responseObject.contentType } );
 
 	    if ( responseObject.hasPayload() ) {
 
-		response.write( payload );
+		response.write( responseObject.payload );
 
 	    }
 
@@ -259,23 +286,26 @@ var ServerPrototype = {
 
 	var constructRequestRepresentationCallback = function( requestRepresentation ) {
 
+	    console.log( 'Providing request representation for resource of type ' + requestRepresentation.resource.type + ' to the Handler' );
 	    resourceRouter.handleRequest( requestRepresentation, handleRequestCallback );
 
 	};
 
 	var retrievePayloadCallback = function( payload ) {
 
+	    console.log( 'Constructing request representation' );
 	    constructRequestRepresentation( 
 		request, 
 		payload, 
 		resourceRequestor, 
 		requestRepresentationFactory, 
-		requestUriToResourceUriTransformer, 
+		requestToResourceUriTransformer, 
 		constructRequestRepresentationCallback 
 	    );
 
 	};
 
+	console.log( 'Retrieving request payload' );
 	retrievePayload( request, response, retrievePayloadCallback );
 
     }, 
@@ -286,6 +316,7 @@ var ServerPrototype = {
      */
     start : function() {
 
+	console.log( 'Starting server at port ' + this.port );
 	this.server = this.serverStarter( this.handleRequest.bind( this ), this.port );
 
     }, 
@@ -318,14 +349,13 @@ var ServerPrototype = {
  *          <li>port : <em>Optional</em> The port Number which the server will listen on.  Defaults to 8888.</li>
  *          <li>resourceRequestor : <em>Required</em> A function which will take a URI, create a Resource representation, and provide the 
  *                                  representation to a callback function.</li>
+ *          <li>resourceRouter : <em>Required</em> A Router implementation responsible for mapping Resource Representations to Handlers</li>
  *          <li>requestRepresentationFactory : <em>Optional</em> A factory which builds Request Representation objects based on HTTP requests 
  *                                             and resource representations. Such a factory is expected to take the following parameters : 
  *                                             request (the raw HTTP request), payload, resource (the Resource Representation built via the
  *                                             resourceRequestor).</li>
- *          <li>requestUriToResourceUriTransformer : <em>Optional</em> A function which will take a String version of the full URI requested
- *                                                   and will return a String version of the anticipated underlying resource URI. The default 
- *                                                   implementation strips the extension from the requested URI as that is used by the resource 
- *                                                   router to resolve the rendering agent but not the requested resource (that's a lot of 'r's).</li>
+ *          <li>requestToResourceUriTransformer : <em>Optional</em> A function which will take an HTTP request and transforms the request into 
+ *                                                the URI String of the requested underlying Resource.</li>
  *        </ul>
  */
 var serverFactory = function( config ) {
@@ -344,12 +374,16 @@ var serverFactory = function( config ) {
 	    value : config.resourceRequestor, 
 	    writable : false
         }, 
+	resourceRouter : {
+	    value : config.resourceRouter, 
+	    writable : false
+        },
 	requestRepresentationFactory : {
 	    value : config.requestRepresentationFactory || defaultRequestRepresentationFactory, 
 	    writable : false
         }, 
-        requestUriToResourceUriTransformer : { 
-	    value : config.requestUriToResourceUriTransformer || defaultRequestUriToResourceUriTransformer, 
+        requestToResourceUriTransformer : { 
+	    value : config.requestToResourceUriTransformer || defaultRequestToResourceUriTransformer, 
 	    writable : false
         }
 
