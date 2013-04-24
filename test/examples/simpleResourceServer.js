@@ -42,7 +42,6 @@ var dummyResourceRequestor = function( resourceUri, callback ) {
 
 var router = routerFactory.make( resourceHandlerMap, handlerDefinitions );
 
-//var fileRouter = fileRouterFactory.make( [ '/Users/paulmichelotti/Projects/ResourceRouter/dev/node-resource-router/test/examples/static' ] );
 var fileRouter = fileRouterFactory.make( [ './static' ] );
 
 var server = serverFactory.make( {
