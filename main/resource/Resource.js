@@ -1,11 +1,11 @@
+var rdfConstants = require( '../rdf/Constants' );
+
 /**
  * An abstract representation of a resource made up of the resource's URI, a type, and a set of properties
  */
 var ResourcePrototype = { 
 
 };
-
-var RDF_TYPE_URI = "rdf:type";
 
 /**
  * Creates a Resource representation
@@ -17,7 +17,7 @@ var RDF_TYPE_URI = "rdf:type";
  */
 var resourceFactory = function( uri, properties ) {
 
-    var rdfType = properties[ RDF_TYPE_URI ];
+    var rdfType = properties[ rdfConstants.RDF_TYPE ];
 
     return Object.create( ResourcePrototype, {
 	uri : { 

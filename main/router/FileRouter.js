@@ -28,6 +28,7 @@ var lookupFileInPath = function( pathPrefixToCheck, pathPrefixesToCheckNext, req
 	fs.exists( fullPath, function( fileExists ) {
 
 	    if ( fileExists ) {
+		console.log( 'FileRouter File found at path' );
 		callback( fullPath );
 		return;
 	    }

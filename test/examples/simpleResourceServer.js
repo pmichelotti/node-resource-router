@@ -36,13 +36,14 @@ var handlerDefinitions = {
 var dummyResourceRequestor = function( resourceUri, callback ) {
 
     console.log( 'Dummy Resource Requestor called for URI ' + resourceUri );
-    callback( resourceFactory.make( resourceUri, { "rdf:type" : "dummy-type" } ) );
+    callback( resourceFactory.make( resourceUri, { "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" : "dummy-type" } ) );
 
 };
 
 var router = routerFactory.make( resourceHandlerMap, handlerDefinitions );
 
-var fileRouter = fileRouterFactory.make( [ '/Users/paulmichelotti/Projects/ResourceRouter/dev/node-resource-router/test/examples/static' ] );
+//var fileRouter = fileRouterFactory.make( [ '/Users/paulmichelotti/Projects/ResourceRouter/dev/node-resource-router/test/examples/static' ] );
+var fileRouter = fileRouterFactory.make( [ './static' ] );
 
 var server = serverFactory.make( {
     resourceRequestor : dummyResourceRequestor, 
