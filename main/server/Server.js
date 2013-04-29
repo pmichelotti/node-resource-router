@@ -47,6 +47,11 @@ var defaultRequestToResourceUriTransformer = function( request ) {
     console.log( 'Resource Path : ' + resourcePath );
     
     var requestProtocol = requestUrl.protocol || request.protocol || 'http:';
+    
+    if ( requestProtocol.charAt( requestProtocol.length - 1 ) !== ':' ) {
+	requestProtocol = requestProtocol + ':';
+    }
+ 
     var requestHost = requestUrl.host || request.headers[ 'host' ];
     
     var requestPort = requestUrl.port;
@@ -305,17 +310,36 @@ var ServerPrototype = {
 		responseObject = responseFactory.make( httpConstants.NOT_FOUND, httpConstants.TEXT_PLAIN );
 	    }
 
+	    //check and see if the response is a function. If so, let it handle the raw request and response
+	    if ( typeof responseObject === 'function' ) {
+		console.log( 'Server response object is a function so delegating handling to the function itself' );
+
+		//TODO: Remove
+		if ( request.query ) {
+		    console.log( request.query );
+		    console.log( request.query[ 'openid.mode' ] );
+		}
+
+		console.log( responseObject.toString() );
+		responseObject( request, response );
+		return;
+	    }
+
 	    //if no status code was set or if the status code is not a known status code, a 500 is returned
 	    if ( !responseObject.statusCode ) {
 
-		response.writeHead( httpConstants.INTERNAL_SERVER_ERROR, { "Content-Type" : httpConstants.TEXT_PLAIN } );
+		//response.writeHead( httpConstants.INTERNAL_SERVER_ERROR, { "Content-Type" : httpConstants.TEXT_PLAIN } );
+		response.statusCode = httpConstants.INTERNAL_SERVER_ERROR;
+		response.setHeader( "Content-Type", httpConstants.TEXT_PLAIN );
 		response.end();
 		return;
 
 	    }
 
 	    
-	    response.writeHead( responseObject.statusCode, { "Content-Type" : responseObject.contentType } );
+	    //response.writeHead( responseObject.statusCode, { "Content-Type" : responseObject.contentType } );
+	    response.statusCode = responseObject.statusCode;
+	    response.setHeader( "Content-Type", responseObject.contentType );
 
 	    if ( responseObject.hasPayload() ) {
 
@@ -324,6 +348,7 @@ var ServerPrototype = {
 	    }
 
 	    response.end();
+	    return;
 
 	};
 

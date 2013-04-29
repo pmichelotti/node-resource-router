@@ -16,14 +16,20 @@ var ResourceHandlerMapPrototype = {
      */
     getHandlerForRequest : function( request ) {
 
+	console.log( 'ResourceHandlerMap Looking up handler for uri ' + request.resource.uri );
+
 	var uriMapping = this.map[ request.resource.uri ] || this.map[ request.resource.type ];
 
 	if ( uriMapping ) {
 	    
+	    console.log( 'ResourceHandlerMap Found mapping for uri. Checking mapping for ' + request.method );
+
 	    var methodMapping = uriMapping[ request.method ] || uriMapping[ '*' ];
 
 	    if ( methodMapping ) {
 		
+		console.log( 'ResourceHandlerMap Found mapping for method. Checking mapping for extension ' + request.extension );
+
 		var extensionMapping = methodMapping[ request.extension ] || methodMapping[ '*' ];
 
 		if ( extensionMapping ) {

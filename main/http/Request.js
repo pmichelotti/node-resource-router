@@ -1,3 +1,5 @@
+var url = require( 'url' );
+
 /**
  * A Request Representation prototype and accompanying factory.  
  */
@@ -17,10 +19,12 @@ var RequestRepresentationPrototype = {
  */
 var getExtensionFromRequest = function( request ) {
 
-    var periodPosition = request.url.lastIndexOf( '.' );
+    var parsedUrl = url.parse( request.url );
 
-    if ( request.url.indexOf( '/', periodPosition ) === -1 ) {
-	return request.url.substr( periodPosition + 1 );
+    var periodPosition = parsedUrl.pathname.lastIndexOf( '.' );
+
+    if ( parsedUrl.pathname.indexOf( '/', periodPosition ) === -1 ) {
+	return parsedUrl.pathname.substr( periodPosition + 1 );
     }
 
     return null;

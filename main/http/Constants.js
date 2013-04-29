@@ -12,6 +12,8 @@ exports.TEXT_HTML = 'text/html';
 exports.TEXT_PLAIN = 'text/plain';
 exports.APPLICATION_JSON = 'application/json';
 exports.APPLICATION_X_WWW_FORM_URLENCODE = 'application/x-www-form-urlencoded';
+exports.TEXT_TURTLE = 'text/turtle';
+exports.IMAGE_PNG = 'image/png';
 
 //Methods
 exports.GET_METHOD = 'GET';
