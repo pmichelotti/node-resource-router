@@ -17,7 +17,7 @@ var ResponsePrototype = {
 
 };
 
-var responseFactory = function( statusCode, contentType, payload ) {
+var responseFactory = function( statusCode, contentType, payload, headers ) {
 
     return Object.create( ResponsePrototype, {
 	statusCode : {
@@ -30,6 +30,10 @@ var responseFactory = function( statusCode, contentType, payload ) {
 	}, 
 	payload : { 
 	    value : payload, 
+	    writable : false
+	}, 
+	headers : {
+	    value : headers, 
 	    writable : false
 	}
     } );

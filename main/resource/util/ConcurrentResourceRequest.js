@@ -6,26 +6,115 @@
  */
 var ConcurrentResourceRequestPrototype = {
 
-    execute : function( callback ) {
+    execute : function( callback, request ) {
 
 	var self = this;
 
+	console.log( 'ConcurrentResourceRequest.execute : Executing request' );
+
 	var results = {};
+
+	var queuedChainedRequests = Array();
 
 	var completedRequests = 0;
 
+	var processQueuedChainedRequests = function() {
+
+	    var readyChainedRequestDefinitions = Array();
+
+	    console.log( queuedChainedRequests );
+
+	    queuedChainedRequests.forEach( function( curChainedRequestDefinition ) {
+
+		var requestAccessor = curChainedRequestDefinition.uri.accessor;
+		var requestPredicate = curChainedRequestDefinition.uri.predicate;
+
+		console.log( 'ConcurrentResourceRequest.requestCallback : determining whether chained request ' + requestAccessor + ' is ready' );
+
+		if ( results[ requestAccessor ] && results[ requestAccessor ].properties[ requestPredicate ] ) {
+
+		    var trueUri = results[ requestAccessor ].properties[ requestPredicate ].val;
+
+		    console.log( 'ConcurrentResourceRequest.requestCallback : Chained request ready to run ' + requestAccessor + ' : ' + requestPredicate + ' : ' + trueUri );
+
+		    if ( trueUri ) {
+			    
+			readyChainedRequestDefinitions.push( {
+			    uri : trueUri, 
+			    requestDefinition : curChainedRequestDefinition 
+			} );
+
+		    }
+			
+		}
+
+	    } );
+	    
+
+	    if ( readyChainedRequestDefinitions.length ) {
+		
+		readyChainedRequestDefinitions.forEach( function( curChainedRequestDefinition ) {
+
+		    //Remove the chained request from the chained request queue
+		    var requestDefinitionIndex = queuedChainedRequests.indexOf( curChainedRequestDefinition.requestDefinition );
+
+		    if ( requestDefinitionIndex >= 0 ) {
+			queuedChainedRequests.splice( requestDefinitionIndex, 1 );
+		    }
+
+		    //Execute the chained request
+		    curChainedRequestDefinition.requestDefinition.requestor(
+			curChainedRequestDefinition.uri, 
+			request, 
+			requestCallback.bind( curChainedRequestDefinition.requestDefinition ) );
+
+		} );
+
+	    }
+
+	};
+
+	/*
+         * Intended to be called in the context of a request definition
+	 */
+	var requestCallback = function( resource ) {
+
+	    console.log( 'ConcurrentResourceRequest.requestCallback : Completed request for ' + resource.uri + ' identified by ' + this.identifier );
+
+	    results[ this.identifier ] = resource;
+	    completedRequests += 1;
+
+	    //If all the requests have completed then we are finished and can call the callback
+	    if ( completedRequests === self.requestDefinitions.length ) {
+		callback( results );
+		return;
+	    }
+
+	    processQueuedChainedRequests();
+	    
+	};
+
 	this.requestDefinitions.forEach( function( requestDefinition ) {
 
-	    var requestCallback = function( resource ) {
-		results[ requestDefinition.identifier ] = resource;
-		completedRequests = completedRequests + 1;
+	    console.log( 'ConcurrentResourceRequest.execute : Executing concurrent request for uri ' + requestDefinition.uri + ' of type ' + ( typeof requestDefinition.uri ) );
 
-		if ( completedRequests === self.requestDefinitions.length ) {
-		    callback( results );
+	    if ( typeof requestDefinition.uri === 'object' ) {
+		console.log( 'ConcurrentResourceRequest.execute : Adding request definition to the queue of chained request. Pending ' + requestDefinition.uri.accessor );
+		queuedChainedRequests.push( requestDefinition );
+
+		if ( results[ requestDefinition.uri.accessor ] ) {
+		    processQueuedChainedRequests();
 		}
-	    };
 
-	    requestDefinition.requestor( requestDefinition.uri, requestCallback );
+		return;
+	    }
+
+	    if ( self.cache && self.cache[ requestDefinition.uri ] ) {
+		requestCallback.call( requestDefinition, self.cache[ requestDefinition.uri ] );
+		return;
+	    }
+
+	    requestDefinition.requestor( requestDefinition.uri, request, requestCallback.bind( requestDefinition ) );
 
 	} );
 
@@ -45,11 +134,15 @@ var ConcurrentResourceRequestPrototype = {
  *                         a request.</li>
  *        </ul>
  */
-var concurrentResourceRequestFactory = function( requestDefinitions ) {
+var concurrentResourceRequestFactory = function( requestDefinitions, cache ) {
 
     return Object.create( ConcurrentResourceRequestPrototype, { 
 	requestDefinitions : {
 	    value : requestDefinitions, 
+	    writable : false
+	}, 
+	cache : {
+	    value : cache, 
 	    writable : false
 	}
     } );

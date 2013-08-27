@@ -135,7 +135,10 @@ var FileRouterPrototype = {
 };
 
 var defaultExtensionToContentTypeMap = {
-    "ico" : "image/x-icon"
+    "ico" : "image/x-icon", 
+    "css" : "text/css", 
+    "js" : "application/javascript", 
+    "png" : "image/png"
 };
 
 var fileRouterFactory = function( paths, extensionToContentTypeMap ) {

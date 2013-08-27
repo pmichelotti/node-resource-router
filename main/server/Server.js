@@ -36,16 +36,27 @@ var defaultServerStarter = function( requestHandler, port ) {
  * before the URI extension in building the resource URI.
  *
  * @param uriString The string of the original URI
+ * @param uriBase The base uri to be prepended to the request path taken from the request.  In the case where a 
+ *                base is provided, the resulting URI will be the base + request.url.pathname.  
  * 
  * @return The resource URI
  */
-var defaultRequestToResourceUriTransformer = function( request ) {
+var defaultRequestToResourceUriTransformer = function( request, uriBase ) {
 
     var requestUrl = url.parse( request.url );
     
     var resourcePath = removeExtensionFromRequestPath( requestUrl.pathname );
     console.log( 'Resource Path : ' + resourcePath );
+
+    //if a URI Base was specified we return the base prepended onto the path
+    if ( uriBase ) {
+	if ( uriBase.charAt( uriBase.length - 1 ) === '/' && resourcePath.charAt( 0 ) === '/' ) {
+	    resourcePath = resourcePath.substr( 1 );
+	}
+	return uriBase + resourcePath;
+    }
     
+    //Otherwise we make a best effort at constructing a full URI from the path
     var requestProtocol = requestUrl.protocol || request.protocol || 'http:';
     
     if ( requestProtocol.charAt( requestProtocol.length - 1 ) !== ':' ) {
@@ -129,13 +140,14 @@ var constructRequestRepresentation = function(
     resourceRequestor, 
     requestRepresentationFactory, 
     requestToResourceUriTransformer, 
+    uriBase, 
     callback ) {
     
-    var resourceUri = requestToResourceUriTransformer( request );
+    var resourceUri = requestToResourceUriTransformer( request, uriBase );
 
-    console.log( 'Resource URI determined to be ' + resourceUri );
+    console.log( 'Server.constructRequestRepresentation : Resource URI determined to be ' + resourceUri );
 
-    resourceRequestor( resourceUri, function( resource ) {
+    resourceRequestor( resourceUri, request, function( resource ) {
 
 	var requestRepresentation = requestRepresentationFactory( request, payload, resource );
 	callback( requestRepresentation );
@@ -174,6 +186,8 @@ var retrievePayloadFromQueryString = function( request ) {
  * @param callback The callback to which the payload will be passed
  */
 var retrievePayloadFromRequestBody = function( request, callback ) {
+
+    console.log( 'Server.retrievePayloadFromRequestBody : Retrieving payload from request body' );
 
     var requestBody = '';
 
@@ -218,26 +232,29 @@ var retrievePayloadFromRequestBody = function( request, callback ) {
  */
 var retrievePayload = function( request, response, callback ) {
 
-    console.log( 'Finding payload retriever for ' + request.method );
+    /*
+    console.log( 'Server.retrievePayload : Finding payload retriever for ' + request.method );
     
-    console.log( 'Constant GET Method : ' + httpConstants.GET_METHOD + ' :: ' + ( httpConstants.GET_METHOD === request.method ) );
-
     switch( request.method ) {
 
 	case httpConstants.GET_METHOD : 
-	    console.log( 'Retrieving payload for GET request' );
+	    console.log( 'Server.retrievePayload : Retrieving payload for GET request' );
 	    callback( retrievePayloadFromQueryString( request ) );
 	    break;
         case httpConstants.POST_METHOD : 
-            console.log( 'Retrieving payload for POST request' );
+            console.log( 'Server.retrievePayload : Retrieving payload for POST request' );
             retrievePayloadFromRequestBody( request, callback );
             break;
 	case httpConstants.PUT_METHOD :
-            console.log( 'Retrieveing payload for PUT request' ); 
+            console.log( 'Server.retrievePayload : Retrieveing payload for PUT request' ); 
 	    retrievePayloadFromRequestBody( request, callback );
 	    break;
 
     }
+    */
+
+    callback( null );
+
 };
 
 var routeRequestThroughRouterChain = function( requestRepresentation, routerChain, callback ) {
@@ -295,6 +312,8 @@ var ServerPrototype = {
      */
     handleRequest : function( request, response ) {
 
+	var self = this;
+
 	var resourceRequestor = this.resourceRequestor;
 	var requestRepresentationFactory = this.requestRepresentationFactory;
 	var requestToResourceUriTransformer = this.requestToResourceUriTransformer;
@@ -314,21 +333,14 @@ var ServerPrototype = {
 	    if ( typeof responseObject === 'function' ) {
 		console.log( 'Server response object is a function so delegating handling to the function itself' );
 
-		//TODO: Remove
-		if ( request.query ) {
-		    console.log( request.query );
-		    console.log( request.query[ 'openid.mode' ] );
-		}
-
-		console.log( responseObject.toString() );
 		responseObject( request, response );
+
 		return;
 	    }
 
 	    //if no status code was set or if the status code is not a known status code, a 500 is returned
 	    if ( !responseObject.statusCode ) {
 
-		//response.writeHead( httpConstants.INTERNAL_SERVER_ERROR, { "Content-Type" : httpConstants.TEXT_PLAIN } );
 		response.statusCode = httpConstants.INTERNAL_SERVER_ERROR;
 		response.setHeader( "Content-Type", httpConstants.TEXT_PLAIN );
 		response.end();
@@ -336,10 +348,15 @@ var ServerPrototype = {
 
 	    }
 
-	    
-	    //response.writeHead( responseObject.statusCode, { "Content-Type" : responseObject.contentType } );
 	    response.statusCode = responseObject.statusCode;
 	    response.setHeader( "Content-Type", responseObject.contentType );
+
+	    if ( responseObject.headers ) {
+		
+		for ( var curHeaderKey in responseObject.headers ) {
+		    response.setHeader( curHeaderKey, responseObject.headers[ curHeaderKey ] );
+		}
+	    }
 
 	    if ( responseObject.hasPayload() ) {
 
@@ -368,6 +385,7 @@ var ServerPrototype = {
 		resourceRequestor, 
 		requestRepresentationFactory, 
 		requestToResourceUriTransformer, 
+		self.uriBase,
 		constructRequestRepresentationCallback 
 	    );
 
@@ -455,7 +473,11 @@ var serverFactory = function( config ) {
         requestToResourceUriTransformer : { 
 	    value : config.requestToResourceUriTransformer || defaultRequestToResourceUriTransformer, 
 	    writable : false
-        }
+        }, 
+	uriBase : {
+	    value : config.uriBase || null, 
+	    writable : false
+	}
 
     } );
 };
